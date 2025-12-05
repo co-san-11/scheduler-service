@@ -1,6 +1,7 @@
 package com.cohesity.scheduler.entity.base;
 
 
+import com.cohesity.scheduler.entity.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -14,6 +15,8 @@ public abstract class BaseTaskEntity {
 
     @Lob
     private String payload;
+
+    private Status status;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 }
