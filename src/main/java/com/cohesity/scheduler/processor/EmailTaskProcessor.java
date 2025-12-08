@@ -4,11 +4,13 @@ package com.cohesity.scheduler.processor;
 import com.cohesity.scheduler.entity.EmailTask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 @Slf4j
+@Qualifier("EmailTaskProcessor")
 public class EmailTaskProcessor implements ItemProcessor<EmailTask, EmailTask> {
 
     private final RestTemplate restTemplate = new RestTemplate();

@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.parameters.RunIdIncrementer;
+import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -33,13 +35,17 @@ public class EmailTaskJobConfig {
     private final JobRepository jobRepository;
     private final EmailTaskProcessor processor;
 
+
+
     // -------------------------------
     // JOB
     // -------------------------------
     @Bean
     public Job emailTaskJob(Step emailTaskStep) {
         return new JobBuilder("emailTaskJob", jobRepository)
+                .listener(new CustomJobExecutionListener())
                 .start(emailTaskStep)
+                .incrementer(new RunIdIncrementer())
                 .build();
     }
 
@@ -98,7 +104,8 @@ public class EmailTaskJobConfig {
     @Bean
     public Step emailTaskStep(JdbcPagingItemReader<EmailTask> reader,
                               JdbcBatchItemWriter<EmailTask> writer,
-                              EmailTaskProcessor processor,
+                              @Qualifier("EmailTaskProcessor")
+                                  EmailTaskProcessor processor,
                               @Qualifier("EmailTaskExecutor") AsyncTaskExecutor executor) {
 
         return new StepBuilder("emailTaskStep", jobRepository)
@@ -111,7 +118,7 @@ public class EmailTaskJobConfig {
                 .skipLimit(10)
                 .retry(Exception.class)
                 .retryLimit(3)
-                .taskExecutor(executor)   // enables parallel chunk processing
+                .taskExecutor(executor)
                 .build();
     }
 }
