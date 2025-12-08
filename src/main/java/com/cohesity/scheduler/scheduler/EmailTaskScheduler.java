@@ -1,46 +1,52 @@
 package com.cohesity.scheduler.scheduler;
 
-import lombok.RequiredArgsConstructor;
-
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.job.Job;
-import org.springframework.batch.core.job.JobExecution;
-import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.boot.batch.autoconfigure.JobLauncherApplicationRunner;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import java.time.LocalDateTime;
-
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class EmailTaskScheduler {
 
-    private final JobOperator jobOperator;
+    private final JobLauncher jobLauncher;
     private final Job emailTaskJob;
 
-    @Scheduled(fixedRateString = "${scheduler.email-task-rate:60000}",initialDelay = 60000  )
-    public void runEmailTaskJob() {
-        System.out.println("starting the scheduler");
-        log.info("Starting Scheduler");
-        var jobParameters = new JobParametersBuilder()
-                .addLocalDateTime("run.time", LocalDateTime.now())
-                .addLong("run.id", System.currentTimeMillis()) // ensures uniqueness
-                .toJobParameters();
-        try {
-            jobOperator.startNextInstance(
-                    emailTaskJob
-            );
+    EmailTaskScheduler(JobLauncher jobLauncher, @Qualifier("emailTaskJob") Job emailTaskJob) {
+        this.jobLauncher = jobLauncher;
+        this.emailTaskJob = emailTaskJob;
+    }
 
+    /**
+     * Scheduled to run every 60 seconds (configurable via application.properties)
+     * Each execution uses unique non-identifying parameters to allow re-execution
+     * 
+     * JobLauncher is the standard approach for launching Spring Batch jobs
+     * with non-identifying job parameters.
+     */
+    @Scheduled(fixedRateString = "${scheduler.email-task-rate:60000}", initialDelay = 60000)
+    public void runEmailTaskJob() {
+        try {
+            log.info("Starting Email Task Job");
+            
+            // Create unique parameters with non-identifying flags (false parameter)
+            // This allows multiple executions without JobInstanceAlreadyCompleteException
+            var jobParameters = new JobParametersBuilder()
+                    .addLong("emailTaskJob.run.id", System.nanoTime(), false)
+                    .addLong("timestamp", System.currentTimeMillis(), false)
+                    .toJobParameters();
+
+            log.debug("Email Job Parameters: {}", jobParameters);
+
+            JobExecution execution = jobLauncher.run(emailTaskJob, jobParameters);
+            log.info("Email Task Job completed with status: {}", execution.getStatus());
         } catch (Exception e) {
-            // use a logger instead of e.printStackTrace() in production
-            e.printStackTrace();
-            System.out.println("error in scheduler");
-            log.info("log error in scheduler");
+            log.error("Error executing Email Task Job", e);
         }
     }
 }

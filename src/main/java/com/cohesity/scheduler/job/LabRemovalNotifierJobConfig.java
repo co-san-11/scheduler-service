@@ -1,8 +1,7 @@
 package com.cohesity.scheduler.job;
 
-import com.cohesity.scheduler.entity.EmailTask;
-import com.cohesity.scheduler.processor.EmailTaskProcessor;
-import jakarta.transaction.TransactionManager;
+import com.cohesity.scheduler.entity.LabRemovalNotifierTask;
+import com.cohesity.scheduler.processor.LabRemovalNotifierProcessor;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.batch.core.Job;
@@ -28,21 +27,18 @@ import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
-public class EmailTaskJobConfig {
+public class LabRemovalNotifierJobConfig {
 
-    private final EmailTaskProcessor processor;
-
-
-
+    private final LabRemovalNotifierProcessor processor;
 
     // -------------------------------
     // JOB
     // -------------------------------
-    @Bean(name = "emailTaskJob")
-    public Job emailTaskJob(Step emailTaskStep, JobRepository jobRepository) {
-        return new JobBuilder("emailTaskJob", jobRepository)
+    @Bean(name = "labRemovalNotifierJob")
+    public Job labRemovalNotifierJob(Step labRemovalNotifierStep, JobRepository jobRepository) {
+        return new JobBuilder("labRemovalNotifierJob", jobRepository)
                 .listener(new CustomJobExecutionListener())
-                .start(emailTaskStep)
+                .start(labRemovalNotifierStep)
                 .build();
     }
 
@@ -50,16 +46,16 @@ public class EmailTaskJobConfig {
     // READER
     // -------------------------------
     @Bean
-    public JdbcPagingItemReader<EmailTask> emailTaskReader(DataSource dataSource) throws Exception {
-        return new JdbcPagingItemReaderBuilder<EmailTask>()
-                .name("emailTaskJdbcPagingReader")
+    public JdbcPagingItemReader<LabRemovalNotifierTask> labRemovalNotifierReader(DataSource dataSource) throws Exception {
+        return new JdbcPagingItemReaderBuilder<LabRemovalNotifierTask>()
+                .name("labRemovalNotifierJdbcPagingReader")
                 .dataSource(dataSource)
                 .selectClause("SELECT id, name, status, updated_at")
-                .fromClause("FROM email_task")
+                .fromClause("FROM lab_removal_notifier_task")
                 .whereClause("WHERE status = :status")
                 .parameterValues(Map.of("status", "PEND"))
                 .sortKeys(Map.of("id", Order.ASCENDING))   // required for paging
-                .rowMapper(new BeanPropertyRowMapper<>(EmailTask.class))
+                .rowMapper(new BeanPropertyRowMapper<>(LabRemovalNotifierTask.class))
                 .pageSize(10)
                 .build();
     }
@@ -68,12 +64,12 @@ public class EmailTaskJobConfig {
     // WRITER
     // -------------------------------
     @Bean
-    public JdbcBatchItemWriter<EmailTask> emailTaskWriter(DataSource dataSource) {
-        return new JdbcBatchItemWriterBuilder<EmailTask>()
+    public JdbcBatchItemWriter<LabRemovalNotifierTask> labRemovalNotifierWriter(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<LabRemovalNotifierTask>()
                 .dataSource(dataSource)
                 .beanMapped()
                 .sql("""
-                        UPDATE email_task 
+                        UPDATE lab_removal_notifier_task 
                         SET status = :status, updated_at = :updatedAt 
                         WHERE id = :id
                         """)
@@ -84,12 +80,12 @@ public class EmailTaskJobConfig {
     // TASK EXECUTOR
     // -------------------------------
     @Bean
-    @Qualifier("EmailTaskExecutor")
-    public AsyncTaskExecutor emailTaskExecutor() {
+    @Qualifier("LabRemovalNotifierExecutor")
+    public AsyncTaskExecutor labRemovalNotifierExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setThreadNamePrefix("emailTaskThread-");
-        executor.setCorePoolSize(5);   // max 5 parallel threads
-        executor.setMaxPoolSize(5);
+        executor.setThreadNamePrefix("labRemovalNotifierThread-");
+        executor.setCorePoolSize(3);   // max 3 parallel threads
+        executor.setMaxPoolSize(3);
         executor.setQueueCapacity(0);  // force parallel execution, no queueing
         executor.initialize();
         return executor;
@@ -99,14 +95,16 @@ public class EmailTaskJobConfig {
     // STEP
     // -------------------------------
     @Bean
-    public Step emailTaskStep(JdbcPagingItemReader<EmailTask> reader,
-                              JdbcBatchItemWriter<EmailTask> writer,
-                              @Qualifier("EmailTaskProcessor")
-                                  EmailTaskProcessor processor,
-                              @Qualifier("EmailTaskExecutor") AsyncTaskExecutor executor, JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    public Step labRemovalNotifierStep(JdbcPagingItemReader<LabRemovalNotifierTask> reader,
+                                       JdbcBatchItemWriter<LabRemovalNotifierTask> writer,
+                                       @Qualifier("LabRemovalNotifierProcessor")
+                                           LabRemovalNotifierProcessor processor,
+                                       @Qualifier("LabRemovalNotifierExecutor") AsyncTaskExecutor executor,
+                                       JobRepository jobRepository,
+                                       PlatformTransactionManager transactionManager) {
 
-        return new StepBuilder("emailTaskStep", jobRepository)
-                .<EmailTask, EmailTask>chunk(5)
+        return new StepBuilder("labRemovalNotifierStep", jobRepository)
+                .<LabRemovalNotifierTask, LabRemovalNotifierTask>chunk(5)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
