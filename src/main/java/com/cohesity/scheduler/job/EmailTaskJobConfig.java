@@ -121,7 +121,7 @@ public class EmailTaskJobConfig {
                 .skipLimit(10)
                 .retry(Exception.class)
                 .retryLimit(3)
-         //       .taskExecutor(executor)
+                .taskExecutor(executor)
                 .transactionManager(transactionManager)
                 .build();
     }
