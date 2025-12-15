@@ -1,12 +1,14 @@
 package com.cohesity.scheduler.job;
 
 import com.cohesity.scheduler.entity.EmailTask;
+import com.cohesity.scheduler.entity.Status;
 import com.cohesity.scheduler.processor.EmailTaskProcessor;
 import jakarta.transaction.TransactionManager;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -50,14 +52,15 @@ public class EmailTaskJobConfig {
     // READER
     // -------------------------------
     @Bean
+    @StepScope
     public JdbcPagingItemReader<EmailTask> emailTaskReader(DataSource dataSource) throws Exception {
         return new JdbcPagingItemReaderBuilder<EmailTask>()
                 .name("emailTaskJdbcPagingReader")
                 .dataSource(dataSource)
-                .selectClause("SELECT id, name, status, updated_at")
+                .selectClause("SELECT * ")
                 .fromClause("FROM email_task")
                 .whereClause("WHERE status = :status")
-                .parameterValues(Map.of("status", "PEND"))
+                .parameterValues(Map.of("status", Status.PEND.name()))
                 .sortKeys(Map.of("id", Order.ASCENDING))   // required for paging
                 .rowMapper(new BeanPropertyRowMapper<>(EmailTask.class))
                 .pageSize(10)
@@ -73,12 +76,15 @@ public class EmailTaskJobConfig {
                 .dataSource(dataSource)
                 .beanMapped()
                 .sql("""
-                        UPDATE email_task 
-                        SET status = :status, updated_at = :updatedAt 
-                        WHERE id = :id
-                        """)
+                UPDATE email_task
+                SET status = :status,
+                    updated_at = :updatedAt
+                WHERE id = :id
+                  AND status = 'PEND'
+            """)
                 .build();
     }
+
 
     // -------------------------------
     // TASK EXECUTOR
@@ -106,7 +112,7 @@ public class EmailTaskJobConfig {
                               @Qualifier("EmailTaskExecutor") AsyncTaskExecutor executor, JobRepository jobRepository, PlatformTransactionManager transactionManager) {
 
         return new StepBuilder("emailTaskStep", jobRepository)
-                .<EmailTask, EmailTask>chunk(5)
+                .<EmailTask, EmailTask>chunk(5,transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
@@ -115,7 +121,7 @@ public class EmailTaskJobConfig {
                 .skipLimit(10)
                 .retry(Exception.class)
                 .retryLimit(3)
-                .taskExecutor(executor)
+         //       .taskExecutor(executor)
                 .transactionManager(transactionManager)
                 .build();
     }

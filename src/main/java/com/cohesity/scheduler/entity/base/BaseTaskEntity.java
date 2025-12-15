@@ -4,6 +4,8 @@ package com.cohesity.scheduler.entity.base;
 import com.cohesity.scheduler.entity.Status;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
 import java.time.LocalDateTime;
 
 @MappedSuperclass
@@ -11,12 +13,15 @@ import java.time.LocalDateTime;
 public abstract class BaseTaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Lob
     private String payload;
 
-    private Status status;
+    private String status;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt;
+
 }

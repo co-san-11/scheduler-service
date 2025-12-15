@@ -18,7 +18,7 @@ public class TaskController {
     public EmailTask addEmailTask(@RequestBody String payload) {
         EmailTask task = new EmailTask();
         task.setPayload(payload);
-        task.setStatus(Status.PEND);
+        task.setStatus(Status.PEND.name());
         return emailTaskRepository.save(task);
     }
 }
